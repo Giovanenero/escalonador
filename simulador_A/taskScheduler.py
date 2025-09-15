@@ -1,6 +1,6 @@
 from enum import Enum
 from process import Process
-from task import Task, State
+from tcb import TCB, State
 
 # A classe Escalonador de Tarefas(Task Scheduler) é quem decide
 # a ordem de execução das tarefas
@@ -25,7 +25,7 @@ class TaskScheduler:
         self.__index_cooperative = 0 # se o escalonador for cooperativo, este atributo se faz relevante para o gerenciamento das tarefas
 
 
-    def task_swap(self, process: Process, task: Task):
+    def task_swap(self, process: Process, task: TCB):
         if process.task_current != task:
             if process.task_current and process.task_current.state != State.TERMINATED:
                 process.task_current.state = State.READY
@@ -34,10 +34,10 @@ class TaskScheduler:
             process.task_current = task
 
 
-    def __execute_fsfc(self, process: Process, tasks: list[Task]) -> bool:
+    def __execute_fsfc(self, process: Process, tasks: list[TCB]) -> bool:
 
         while self.__index_cooperative < len(tasks):
-            task: Task = tasks[self.__index_cooperative]
+            task: TCB = tasks[self.__index_cooperative]
 
             if task.state == State.TERMINATED:
                 self.__index_cooperative += 1
@@ -52,7 +52,7 @@ class TaskScheduler:
         return self.__index_cooperative >= len(tasks) # siginica que totas as tarefa foram terminadas
 
 
-    def __execute_strf(self, process: Process, tasks: list[Task]) -> bool:
+    def __execute_strf(self, process: Process, tasks: list[TCB]) -> bool:
 
         tasks = [task for task in tasks if task.state == State.RUNNING or task.state == State.READY]
         
@@ -60,19 +60,14 @@ class TaskScheduler:
             return False
         
         # procura a tarefa de menor tempo de duração restante
-        # se tiver mais de ua tarefa, pega a primeira delas
+        # se tiver mais de uma tarefa, pega a primeira delas
         task = min(tasks, key=lambda task: task.duration - task.duration_current)
-
-        if process.task_current != task:
-            if process.task_current and process.task_current.state != State.TERMINATED:
-                process.task_current.state = State.READY
-
-            task.state = State.RUNNING
-            process.task_current = task
+        self.task_swap(process, task)
 
         return False
     
-    def __execute_priop(self, process: Process, tasks: list[Task]):
+
+    def __execute_priop(self, process: Process, tasks: list[TCB]):
 
         tasks = [task for task in tasks if task.state == State.RUNNING or task.state == State.READY]
         
@@ -84,14 +79,9 @@ class TaskScheduler:
         return False
 
         
-
     def execute(self, process: Process) -> bool:
-            
-        # se não tiver tarefa no process, finaliza o processo
-        if not process.has_task():
-            return True
 
-        tasks: list[Task] = process.tasks
+        tasks: list[TCB] = process.tasks
 
         terminated = True
 
@@ -106,8 +96,9 @@ class TaskScheduler:
 
         return terminated
     
+
     def update_metrics(self, process: Process):
-        tasks: list[Task] = process.tasks
+        tasks: list[TCB] = process.tasks
 
         lifetime_sum = 0
         waiting_time_sum = 0
@@ -123,18 +114,3 @@ class TaskScheduler:
         self.waiting_time = waiting_time_sum / total_tasks
 
         
-
-
-
-
-            
-
-            
-
-            
-
-
-    
-
-
-    

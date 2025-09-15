@@ -8,10 +8,11 @@ class State(Enum):
     TERMINATED = 4
 
 
-class Task:
+class TCB:
 
-    def __init__(self, id:int, start:int, duration: int, priority: int):
+    def __init__(self, id:int, color: str, start:int, duration: int, priority: int):
         self.id = id
+        self.color = color
         self.start = start
         self.stop = None
         self.waiting = 0
@@ -19,12 +20,12 @@ class Task:
         self.duration = duration
         self.duration_current = 0
         self.priority_init = priority
-        self.priotiry_current = priority
+        self.priority_current = priority
         self.state = State.NEW
 
 
     def increment_priority(self):
-        self.priotiry_current += 1
+        self.priority_current += 1
 
 
     def increment_duration(self):
@@ -40,7 +41,7 @@ class Task:
     
 
     def print_info(self):
-        print(f"ID: {self.id}  ###  Início: {self.start}  ###  Duration: {self.duration_current}/{self.duration}  ###  Prioridade: {self.priority_init}  ###  State: {self.state}\n")
+        print(f"ID: {self.id}  ###  Cor: {self.color}  ###  Início: {self.start}  ###  Duration: {self.duration_current}/{self.duration}  ###  Prioridade: {self.priority_init}  ###  State: {self.state}")
 
 
     def update(self, time: int):
