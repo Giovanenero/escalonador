@@ -6,12 +6,12 @@ import os
 
 def print_gantt(timeline_dict: dict, time: int):
 
-    print("\nTempo:  " + "  ".join(f'{index}' for index in range(time)))
+    print("\nTempo:  " + "  ".join(f'{index:02}' for index in range(time)))
 
     keys: int = sorted(list(timeline_dict.keys()))
 
     for key in keys:
-        print(f"P{key}       " + "  ".join(status for status in timeline_dict[key][:-1]))
+        print(f"P{key}      " + "   ".join(status for status in timeline_dict[key][:-1]))
 
 
 
