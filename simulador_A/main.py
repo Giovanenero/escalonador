@@ -79,6 +79,7 @@ def run():
     while True: 
 
         print(f'================================================= TIME: {time} =================================================\n')
+        print(f'Algoritmo escolhido: {SchedulerSystemType(algorithm).name}\n')
 
         tasks: list[TCB] = process.tasks
 
@@ -105,7 +106,7 @@ def run():
         time += 1
 
         if 'a' in opcao:
-            input('\nPressione qualquer tecla...')
+            input('\nPressione enter...')
 
         print()
 
@@ -114,8 +115,8 @@ def run():
     process.task_current.stop = time
     task_scheduler.update_metrics(process)
 
-    print(f'\nTt = {task_scheduler.turnaround_time}')
-    print(f'Tw = {task_scheduler.waiting_time}')
+    print(f'\nTt = {task_scheduler.turnaround_time} s')
+    print(f'Tw = {task_scheduler.waiting_time} s')
 
 
 if __name__ == '__main__':
