@@ -1,0 +1,9 @@
+[33m983f255[m[33m ([m[1;36mHEAD[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: pull --rebase origin main (start): checkout 983f255d431b83507a61fd405b038941a441ed75
+[33m086a05b[m[33m ([m[1;32mmain[m[33m)[m HEAD@{1}: rebase (finish): returning to refs/heads/main
+[33m086a05b[m[33m ([m[1;32mmain[m[33m)[m HEAD@{2}: commit: resolvendo conflito
+[33me0d0048[m HEAD@{3}: pull --rebase origin main (start): checkout e0d00481fed245d792bb300184ba7ff5277f0394
+[33me57f623[m HEAD@{4}: commit: add executável e gerando um png do gráfico
+[33m1766137[m HEAD@{5}: commit: ajustando index
+[33mca4c6d7[m HEAD@{6}: commit: grafico de gantt
+[33m6304dfa[m HEAD@{7}: commit: criando escalonador para prio, fsfc e stjf
+[33m8a4c31e[m HEAD@{8}: clone: from https://github.com/Giovanenero/escalonador.git
