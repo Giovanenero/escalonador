@@ -5,24 +5,34 @@ from tcb import TCB, State
 # A classe Escalonador de Tarefas(Task Scheduler) é quem decide
 # a ordem de execução das tarefas
 
-# Tipos de Tarefas: orientadas a processamento(CPU-bound tasks)
-
+# Tipos de Tarefas: orientadas a processamento (CPU-bound tasks)
 class SchedulerSystemType(Enum):
-    FSFC = 0 # cooperativo
-    SRTF = 1 # prempetivo
-    PRIOP = 2 # premptivo
+    FSCS = "FSCS"   # cooperativo
+    SRTF = "SRTF"   # preemptivo
+    PRIOP = "PRIOP" # preemptivo por prioridade
+
+    def get_executor(self, scheduler: "TaskScheduler"):
+        if self is SchedulerSystemType.FSCS:
+            return scheduler._TaskScheduler__execute_fsfc
+        elif self is SchedulerSystemType.SRTF:
+            return scheduler._TaskScheduler__execute_strf
+        elif self is SchedulerSystemType.PRIOP:
+            return scheduler._TaskScheduler__execute_priop
+        else:
+            raise ValueError(f"Scheduler não suportado: {self}")
+
 
 class TaskScheduler:
-    def __init__(self, type_scheduler: SchedulerSystemType, quantum: int = None):
+    def __init__(self, type_scheduler: str, quantum: int = None):
         self.turnaround_time:float = None
         self.waiting_time:float = None
         self.response_time: float = None
         self.efficiency: float = None
         self.__quantum:int = quantum
         self.__remaining_quantum_time: int = 0
-        self.type_scheduler: SchedulerSystemType = type_scheduler
+        self.type_scheduler = SchedulerSystemType[type_scheduler.upper()]
 
-        self.__index_cooperative = 0 # se o escalonador for cooperativo, este atributo se faz relevante para o gerenciamento das tarefas
+        #self.__index_cooperative = 0 # se o escalonador for cooperativo, este atributo se faz relevante para o gerenciamento das tarefas
 
 
     def task_swap(self, process: Process, task: TCB):
@@ -36,20 +46,48 @@ class TaskScheduler:
 
     def __execute_fsfc(self, process: Process, tasks: list[TCB]) -> bool:
 
-        while self.__index_cooperative < len(tasks):
-            task: TCB = tasks[self.__index_cooperative]
+        task_running: TCB = next((task for task in tasks if task.state == State.RUNNING), None)
 
-            if task.state == State.TERMINATED:
-                self.__index_cooperative += 1
+        if task_running:
+            return False
 
-            elif task.state == State.READY:
-                task.state = State.RUNNING
-                process.task_current = task
-                break
-
-            else: break
+        task_ready: TCB = next((task for task in tasks if task.state == State.READY), None)
         
-        return self.__index_cooperative >= len(tasks) # siginica que totas as tarefa foram terminadas
+        if task_ready:
+            task_ready.state = State.RUNNING
+            process.task_current = task_ready
+            return False
+
+
+        return True
+
+
+        # while self.__index_cooperative < len(tasks):
+        #     task_running, index_running = next(((task, index) for index, task in enumerate(tasks) if task.state == State.RUNNING), (None, -1))
+
+        #     if task_running:
+
+
+        #     if task_running is None:
+        #         task_ready, index_ready = next(((task, index) for index, task in enumerate(tasks) if task.state == State.READY), (None, -1))
+
+
+
+
+        #     task: TCB = next(task for task in tasks if task.state)
+        #     task: TCB = tasks[self.__index_cooperative]
+
+        #     if task.state == State.TERMINATED:
+        #         self.__index_cooperative += 1
+
+        #     elif task.state == State.READY:
+        #         task.state = State.RUNNING
+        #         process.task_current = task
+        #         break
+
+        #     else: break
+        
+        #return self.__index_cooperative >= len(tasks) # siginica que totas as tarefa foram terminadas
 
 
     def __execute_strf(self, process: Process, tasks: list[TCB]) -> bool:
@@ -80,22 +118,10 @@ class TaskScheduler:
 
         
     def execute(self, process: Process) -> bool:
-
         tasks: list[TCB] = process.tasks
+        executor = self.type_scheduler.get_executor(self)
+        return executor(process, tasks)
 
-        terminated = True
-
-        if self.type_scheduler == SchedulerSystemType.FSFC:
-            terminated = self.__execute_fsfc(process, tasks)
-        
-        elif self.type_scheduler == SchedulerSystemType.SRTF:
-            terminated = self.__execute_strf(process, tasks)
-
-        elif self.type_scheduler == SchedulerSystemType.PRIOP:
-            terminated = self.__execute_priop(process, tasks)
-
-        return terminated
-    
 
     def update_metrics(self, process: Process):
         tasks: list[TCB] = process.tasks

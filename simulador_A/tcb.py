@@ -10,7 +10,7 @@ class State(Enum):
 
 class TCB:
 
-    def __init__(self, id:int, color: str, start:int, duration: int, priority: int):
+    def __init__(self, id:int, color: str, start:int, duration: int, priority: int, events: list[dict]):
         self.id = id
         self.color = color
         self.start = start
@@ -22,6 +22,7 @@ class TCB:
         self.priority_init = priority
         self.priority_current = priority
         self.state = State.NEW
+        self.events = events
 
 
     def increment_priority(self):
@@ -44,7 +45,27 @@ class TCB:
         print(f"ID: {self.id}  ###  Cor: {self.color}  ###  Início: {self.start}  ###  Duration: {self.duration_current}/{self.duration}  ###  Prioridade: {self.priority_init}  ###  State: {self.state}")
 
 
-    def update(self, time: int):
+    def update_events(self, time: int):
+
+        # pega todas os eventos que estão acontecendo no exato momento
+        events = [
+            event 
+            for event in self.events 
+            if time >= event['start'] and event['duration'] > event['duration_current'] and time >= self.start
+        ]
+
+        if events:
+            # atualiza a lista de eventos
+            for event in events:
+                if 'IO' in event['type']:
+                    self.state = State.SUSPENDED
+                    event['duration_current'] += 1
+
+        elif time >= self.start and self.state == State.SUSPENDED:
+            self.state = State.READY
+
+
+    def update_state(self, time: int):
 
         if self.state == State.NEW and time >= self.start:
             self.state = State.READY
