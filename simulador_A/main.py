@@ -3,7 +3,7 @@ from process import Process
 from taskScheduler import TaskScheduler
 import os, matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from time import sleep
+from mutex import Mutex
 
 
 def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, save=True):
@@ -30,8 +30,21 @@ def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, sav
 
     # --- Tabela ---
     ax_table.axis('off')
-    table_data = [[task.id, task.color, task.start, f"{task.duration_current}/{task.duration}", task.priority_init, task.state.name] for task in tasks]
-    col_labels = ["ID", "Cor", "Início", "Duração", "Prioridade", "Estado"]
+    table_data = [
+        [
+            task.id, 
+            task.color, 
+            task.start, 
+            f"{task.duration_current}/{task.duration}", 
+            task.priority_init,
+            ", ".join([f'{event["start"]}/{event["duration"]}/{event["duration_current"]}' for event in task.events if 'IO' in event['type']]), 
+            ", ".join([f'{event["type"]}:{event["start"]}' for event in task.events if event['type'] in ['ML', 'MU']]),
+            "1" if task == MUTEX.owner else "0",
+            task.state.name
+        ] 
+        for task in tasks
+    ]
+    col_labels = ["ID", "Cor", "Início", "Duração", "Prioridade", "IO", "ML/MU", "Lock", "Estado"]
 
     cell_colors = []
     for task in tasks:
@@ -79,17 +92,36 @@ def initialize() -> tuple[int, int, list[TCB]]:
 
         items: list[str] = [item for item in task.strip().split(';')]
 
-        events: list[dict] = [ 
-            {
-                'type': event_type, 
-                'start': int(time_event.split('-')[0]), 
-                'duration': int(time_event.split('-')[1]),
-                'duration_current': 0
-            }
-            for item in items[5:] if item != ''
-            for event_type, time_event in [item.split(':')]
-        ]
-        
+        # events: list[dict] = [ 
+        #     {
+        #         'type': event_type, 
+        #         'start': int(time_event.split('-')[0]) if 'IO' in event_type else int(time_event[0]), 
+        #         'duration': int(time_event.split('-')[1]) if 'IO' in event_type else 1,
+        #         'duration_current': 0 if event_type in ['ML', 'MU'] else 0
+        #     }
+        #     for item in items[5:] if item != ''
+        #     for event_type, time_event in [item.split(':')]
+        # ]
+        events: list[dict] = []
+        for item in items[5:]:
+            if not item:
+                continue
+            event_type, time_event = item.split(':')
+            if 'IO' in event_type:
+                start_s, dur_s = time_event.split('-')
+                events.append({
+                    'type': event_type,
+                    'start': int(start_s),
+                    'duration': int(dur_s),
+                    'duration_current': 0
+                })
+            else:  # ML ou MU
+                events.append({
+                    'type': event_type,
+                    'start': int(time_event),
+                    'duration': 1,               # opcional — para marcar ocorrência
+                    'duration_current': 0
+                })
         
         tcb: TCB = TCB(
             items[0],       # pid
@@ -117,6 +149,7 @@ def save_timeline(timeline_dict: dict, tasks: list[TCB]) -> dict:
 
 
 def run():
+    global MUTEX
 
     algorithm, quantum, tasks = initialize()
 
@@ -146,23 +179,24 @@ def run():
     ax_graph = fig.add_subplot(gs[0])
     ax_table = fig.add_subplot(gs[1])
 
+    MUTEX = Mutex()
+
     while True: 
 
         #print(f'================================================= TIME: {time} =================================================\n')
 
         tasks: list[TCB] = process.tasks
 
-        # atualizar a tarefa e o estado de todas as tarefas com base no tempo atual
         for task in tasks:
-            task.update_state(time)
-            task.update_events(time)
-            #print(f"ID: {task.id}  ###  Cor: {task.color}  ###  Início: {task.start}  ###  Duration: {task.duration_current}/{task.duration}  ###  Prioridade: {task.priority_init}  ###  State: {task.state}")
+            task.update_state(time, MUTEX)
+
+
+        #se não tiver tarefa no process, finaliza o processo
+        if not process.has_task():
+            break
 
         # chama o escalonador para decidir qual tarefa deve rodar
-        terminated = task_scheduler.execute(process)
-
-        # atualiza a tarefa
-        # process.task_update(time)
+        task_scheduler.execute(process, MUTEX)
 
         timeline_dict = save_timeline(timeline_dict, tasks)
 
@@ -171,10 +205,9 @@ def run():
             #sleep(0.5)
             input('pressione qualquer tecla')
 
-        # se não tiver tarefa no process, finaliza o processo
-        terminated = not process.has_task()
-        if terminated:
-            break
+
+            #print(f"ID: {task.id}  ###  Cor: {task.color}  ###  Início: {task.start}  ###  Duration: {task.duration_current}/{task.duration}  ###  Prioridade: {task.priority_init}  ###  State: {task.state}")
+
 
         time += 1
 

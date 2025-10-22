@@ -1,19 +1,20 @@
 from enum import Enum
 from process import Process
 from tcb import TCB, State
+from mutex import Mutex
 
 # A classe Escalonador de Tarefas(Task Scheduler) é quem decide
 # a ordem de execução das tarefas
 
 # Tipos de Tarefas: orientadas a processamento (CPU-bound tasks)
 class SchedulerSystemType(Enum):
-    FSCS = "FSCS"   # cooperativo
+    FCFS = "FCFS"   # cooperativo
     SRTF = "SRTF"   # preemptivo
     PRIOP = "PRIOP" # preemptivo por prioridade
 
     def get_executor(self, scheduler: "TaskScheduler"):
-        if self is SchedulerSystemType.FSCS:
-            return scheduler._TaskScheduler__execute_fsfc
+        if self is SchedulerSystemType.FCFS:
+            return scheduler._TaskScheduler__execute_fcfs
         elif self is SchedulerSystemType.SRTF:
             return scheduler._TaskScheduler__execute_strf
         elif self is SchedulerSystemType.PRIOP:
@@ -35,17 +36,45 @@ class TaskScheduler:
         #self.__index_cooperative = 0 # se o escalonador for cooperativo, este atributo se faz relevante para o gerenciamento das tarefas
 
 
-    def task_swap(self, process: Process, task: TCB):
-        if process.task_current != task:
-            if process.task_current and process.task_current.state != State.TERMINATED:
-                process.task_current.state = State.READY
+    # def task_swap(self, process: Process, task: TCB, mutex:Mutex):
 
-            task.state = State.RUNNING
-            process.task_current = task
+    #     if process.task_current != task:
+
+    #         if process.task_current and \
+    #         process.task_current.state != State.TERMINATED and \
+    #         process.task_current.state != State.SUSPENDED:
+                
+    #             process.task_current.state = State.READY
+
+    #         if process.task_current and mutex.owner == process.task_current.id:
+    #             task.state = State.SUSPENDED
+
+    #         else:
+
+    #             task.state = State.RUNNING
+    #             process.task_current = task
+
+    def task_swap(self, process: Process, task: TCB, mutex: Mutex):
+        # se já está em execução, nada a fazer
+        if process.task_current == task:
+            return
+
+        # se o mutex está travado por outro TCB, a tarefa candidata não pode rodar
+        if mutex.locked and mutex.owner is not None and mutex.owner != task:
+            # não podemos colocar 'task' para RUNNING — ela fica READY
+            return
+
+        # coloca a tarefa atualmente em CPU de volta para READY (se aplicável)
+        if process.task_current and process.task_current.state not in (State.TERMINATED, State.SUSPENDED):
+            process.task_current.state = State.READY
+
+        # troca: coloca a candidata para RUNNING
+        task.state = State.RUNNING
+        process.task_current = task
 
 
-    def __execute_fsfc(self, process: Process, tasks: list[TCB]) -> bool:
-
+    def __execute_fcfs(self, process: Process, tasks: list[TCB], mutex:Mutex) -> bool:
+        
         task_running: TCB = next((task for task in tasks if task.state == State.RUNNING), None)
 
         if task_running:
@@ -90,37 +119,40 @@ class TaskScheduler:
         #return self.__index_cooperative >= len(tasks) # siginica que totas as tarefa foram terminadas
 
 
-    def __execute_strf(self, process: Process, tasks: list[TCB]) -> bool:
+    def __execute_strf(self, process: Process, tasks: list[TCB], mutex:Mutex) -> bool:
 
         tasks = [task for task in tasks if task.state == State.RUNNING or task.state == State.READY]
         
         if not tasks: # significa que tem tarefa suspensa ou ainda falta carregar na memória
+            process.task_current = None
             return False
         
         # procura a tarefa de menor tempo de duração restante
         # se tiver mais de uma tarefa, pega a primeira delas
         task = min(tasks, key=lambda task: task.duration - task.duration_current)
-        self.task_swap(process, task)
+        self.task_swap(process, task, mutex)
 
         return False
     
 
-    def __execute_priop(self, process: Process, tasks: list[TCB]):
+    def __execute_priop(self, process: Process, tasks: list[TCB], mutex:Mutex):
 
         tasks = [task for task in tasks if task.state == State.RUNNING or task.state == State.READY]
         
-        if not tasks: return False
+        if not tasks: 
+            process.task_current = None
+            return False
         
         task = max(tasks, key=lambda task: task.priority_init)
-        self.task_swap(process, task)
+        self.task_swap(process, task, mutex)
 
         return False
 
         
-    def execute(self, process: Process) -> bool:
+    def execute(self, process: Process, mutex:Mutex) -> bool:
         tasks: list[TCB] = process.tasks
         executor = self.type_scheduler.get_executor(self)
-        return executor(process, tasks)
+        return executor(process, tasks, mutex)
 
 
     def update_metrics(self, process: Process):
