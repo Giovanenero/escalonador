@@ -29,8 +29,8 @@ class TaskScheduler:
         self.waiting_time:float = None
         self.response_time: float = None
         self.efficiency: float = None
-        self.__quantum:int = quantum
-        self.__remaining_quantum_time: int = 0
+        self.quantum:int = quantum
+        self.remaining_quantum_time: int = 0
         self.type_scheduler = SchedulerSystemType[type_scheduler.upper()]
 
         #self.__index_cooperative = 0 # se o escalonador for cooperativo, este atributo se faz relevante para o gerenciamento das tarefas
@@ -77,18 +77,45 @@ class TaskScheduler:
         
         task_running: TCB = next((task for task in tasks if task.state == State.RUNNING), None)
 
-        if task_running:
-            return False
-
-        task_ready: TCB = next((task for task in tasks if task.state == State.READY), None)
-        
-        if task_ready:
+        # Se não tiver task rodando, tenta encontrar uma tarefa pronta
+        if not task_running:
+            self.remaining_quantum_time = 1
+            task_ready: TCB = next((task for task in tasks if task.state == State.READY), None)
+            if not task_ready: # se não tiver tarefa pronta verifica se existe alguma tarefa que está por vir
+                task: TCB = next((task for task in tasks if task.state == State.NEW or State.SUSPENDED), None)
+                if not task:
+                    return True # Não existe mais tarefas para ser processada
+                
+                return False # aguarda a tarefa ficar pronta
+            
+            # coloca a tarefa para rodar
             task_ready.state = State.RUNNING
             process.task_current = task_ready
+            
             return False
 
+        if self.remaining_quantum_time >= self.quantum:
+            self.remaining_quantum_time = 1
 
-        return True
+            task_running.state = State.READY # coloca a tarefa na fila de pronta
+
+            # pega a próxima tarefa ques está pronta e que não é a mesma que rodou na última execução
+            task_ready: TCB = next((task for task in tasks if task.state == State.READY and task != task_running), None)
+
+            # A tarefa continua rodando, pois não tem nenhuma tarefa pronta disponível no momento
+            if not task_ready:
+                task_running.state = State.RUNNING 
+                return False
+            
+            # troca a tarefa para a próxima até estourar o quantum
+            task_ready.state = State.RUNNING
+            process.task_current = task_ready
+
+            return False
+        
+        self.remaining_quantum_time += 1
+
+        return False
 
 
         # while self.__index_cooperative < len(tasks):

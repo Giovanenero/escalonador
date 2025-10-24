@@ -112,45 +112,6 @@ class TCB:
                         self.events.remove(event)
 
 
-
-    # def update_events(self, mutex:Mutex):
-
-    #     active_events = []
-
-    #     for event in self.events[:]:
-    #         if 'IO' in event['type']:
-    #             if event['duration_current'] >= event['duration']:
-    #                 self.events.remove(event)
-    #                 continue
-
-    #         if self.duration_current >= event['start']:
-    #             active_events.append(event)
-
-    #     # processar eventos ativos
-    #     if active_events:
-    #         for event in active_events:
-    #             event_type = event['type']
-
-    #             if 'IO' in event_type:
-    #                 self.state = State.SUSPENDED
-    #                 event['duration_current'] += 1
-
-    #             elif 'ML' in event_type:
-    #                 if not mutex.locked:
-    #                     mutex.locked = True
-    #                     mutex.owner = self.id
-    #                     print(f'{self.id} adquiriu o mutex')
-    #                     self.events.remove(event)
-    #                 else:
-    #                     self.state = State.SUSPENDED
-    #                     if self.id not in mutex.waiting_queue:
-    #                         mutex.waiting_queue.append(self.id)
-    #                 #event['duration_current'] += 1
-        
-    #     elif self.state == State.SUSPENDED:
-    #         self.state = State.READY
-
-
     def update_state(self, time: int, mutex:Mutex):
 
         if self.state == State.NEW and time >= self.start:
