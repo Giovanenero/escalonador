@@ -54,6 +54,14 @@ class TaskScheduler:
 
     def __execute_fcfs(self, process: Process, tasks: list[TCB], mutex:Mutex) -> bool:
         
+        task_running: TCB = process.task_current
+
+        # continua até a que a tarefa saia da seção crítica
+        if task_running and mutex.owner and mutex.owner == task_running:
+            #if task_running == State.RUNNING:
+            self.remaining_quantum_time += 1
+            return False
+
         task_running: TCB = next((task for task in tasks if task.state == State.RUNNING), None)
 
         # Se não tiver task rodando, tenta encontrar uma tarefa pronta
@@ -71,12 +79,6 @@ class TaskScheduler:
             task_ready.state = State.RUNNING
             process.task_current = task_ready
             
-            return False
-
-        # continua até a que a tarefa saia da seção crítica
-        if mutex.owner and mutex.owner == task_running:
-            if task_running == State.RUNNING:
-                self.remaining_quantum_time += 1
             return False
 
         if self.remaining_quantum_time >= self.quantum:
@@ -121,8 +123,8 @@ class TaskScheduler:
         
         # se a tarefa atual pertence a seção crítica, deixa ela rodar até sair da seção
         if task_running and mutex.owner and mutex.owner == task_running:
-            if task_running == State.RUNNING:
-                self.remaining_quantum_time += 1
+            #if task_running == State.RUNNING:
+            self.remaining_quantum_time += 1
             return False
 
         # faz a troca de tarefa se estourou o quantum
@@ -180,8 +182,8 @@ class TaskScheduler:
 
         # se a tarefa estiver na seção crítica, continua até que ela saia da seção
         if task_running and mutex.owner and mutex.owner == task_running:
-            if task_running == State.RUNNING:
-                self.remaining_quantum_time += 1
+            #if task_running == State.RUNNING:
+            self.remaining_quantum_time += 1
             return False
 
         if task_running and self.remaining_quantum_time >= self.quantum:

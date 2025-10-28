@@ -5,8 +5,7 @@ import os, matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from mutex import Mutex
 
-
-def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, save=True):
+def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, algoritmo: str, quantum: int, save=True):
     ax_graph.clear()
     ax_table.clear()
 
@@ -28,6 +27,14 @@ def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, sav
     ax_graph.set_yticklabels([f"P{tid}" for tid in timeline_dict.keys()])
     ax_graph.set_xticks(range(len(next(iter(timeline_dict.values())))))
 
+    # --- Legenda com o algoritmo e quantum ---
+    ax_graph.text(
+        0.5, 1.05, 
+        f"Algoritmo: {algoritmo} | Quantum: {QUANTUM} | Running: {quantum}", 
+        ha='center', va='bottom', transform=ax_graph.transAxes,
+        fontsize=10, fontweight='bold'
+    )
+
     # --- Tabela ---
     ax_table.axis('off')
     table_data = [
@@ -48,16 +55,18 @@ def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, sav
 
     cell_colors = []
     for task in tasks:
-        # Preenche a cor apenas na coluna 1 (índice 1), o resto fica branco
         row_colors = ['white'] * len(col_labels)
         row_colors[1] = task.color
         cell_colors.append(row_colors)
 
-    ax_table.table(cellText=table_data, colLabels=col_labels, cellLoc='center', colLoc='center', loc='center', cellColours=cell_colors)
-
-
-    #ax_table.table(cellText=table_data, colLabels=col_labels, cellLoc='center', colLoc='center', loc='center')
-
+    ax_table.table(
+        cellText=table_data, 
+        colLabels=col_labels, 
+        cellLoc='center', 
+        colLoc='center', 
+        loc='center', 
+        cellColours=cell_colors
+    )
 
     plt.draw()
     plt.pause(0.01)
@@ -150,9 +159,9 @@ def save_timeline(timeline_dict: dict, tasks: list[TCB]) -> dict:
 
 
 def run():
-    global MUTEX
+    global MUTEX, QUANTUM
 
-    algorithm, quantum, tasks = initialize()
+    algorithm, QUANTUM, tasks = initialize()
 
     process = Process() # cria o process
     for task in tasks:
@@ -160,7 +169,7 @@ def run():
 
     process.sort_ready() # ordena as tarefas por ordem de ingresso
 
-    task_scheduler = TaskScheduler(algorithm, quantum)
+    task_scheduler = TaskScheduler(algorithm, QUANTUM)
 
     time = 0
     timeline_dict = {task.id: [] for task in tasks}
@@ -194,14 +203,13 @@ def run():
         if not process.has_task():
             break
 
-
         # chama o escalonador para decidir qual tarefa deve rodar
         task_scheduler.execute(process, MUTEX)
 
         timeline_dict = save_timeline(timeline_dict, tasks)
 
         if 'a' in opcao:
-            plot_timeline(timeline_dict, tasks, ax_graph, ax_table)
+            plot_timeline(timeline_dict, tasks, ax_graph, ax_table, algoritmo=algorithm, quantum=task_scheduler.remaining_quantum_time)
             #sleep(0.5)
             input('pressione qualquer tecla')
 
@@ -218,7 +226,7 @@ def run():
     print(f'Tw = {task_scheduler.waiting_time} s')
 
 
-    plot_timeline(timeline_dict, tasks, ax_graph, ax_table)
+    plot_timeline(timeline_dict, tasks, ax_graph, ax_table, algoritmo=algorithm, quantum=task_scheduler.remaining_quantum_time)
 
     input('pressione qualquer tecla...')
 
