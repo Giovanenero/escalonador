@@ -73,6 +73,12 @@ class TaskScheduler:
             
             return False
 
+        # continua até a que a tarefa saia da seção crítica
+        if mutex.owner and mutex.owner == task_running:
+            if task_running == State.RUNNING:
+                self.remaining_quantum_time += 1
+            return False
+
         if self.remaining_quantum_time >= self.quantum:
             self.remaining_quantum_time = 1
 
@@ -99,30 +105,107 @@ class TaskScheduler:
 
     def __execute_srtf(self, process: Process, tasks: list[TCB], mutex:Mutex) -> bool:
 
+        task_running: TCB = process.task_current
+
+        if task_running and task_running.finished():
+            task_running.state = State.TERMINATED
+            process.task_current = None
+            task_running = process.task_current
+            self.remaining_quantum_time = 1
+
         tasks = [task for task in tasks if task.state == State.RUNNING or task.state == State.READY]
         
         if not tasks: # significa que tem tarefa suspensa ou ainda falta carregar na memória
             process.task_current = None
             return False
         
+        # se a tarefa atual pertence a seção crítica, deixa ela rodar até sair da seção
+        if task_running and mutex.owner and mutex.owner == task_running:
+            if task_running == State.RUNNING:
+                self.remaining_quantum_time += 1
+            return False
+
+        # faz a troca de tarefa se estourou o quantum
+        if task_running and self.remaining_quantum_time >= self.quantum:
+
+            # procura todas as tarefas prontas
+            tasks_ready = [task for task in tasks if task.state == State.READY and task != task_running]
+
+            # a tarefa atual continua rodando, pois ainda não existe tarefas prontas
+            if not tasks_ready:
+                self.remaining_quantum_time += 1
+                return False
+            
+            tasks = tasks_ready
+        
+        # if task_running.finished():
+        #     tasks_ready = [task for task in tasks if task.state == State.READY and task != task_running]
+
+        #     if 
+
+
         # procura a tarefa de menor tempo de duração restante
         # se tiver mais de uma tarefa, pega a primeira delas
         task = min(tasks, key=lambda task: task.duration - task.duration_current)
+
+        if task == task_running:
+            self.remaining_quantum_time += 1
+            return False
+        elif task_running:
+            task_running.state = State.SUSPENDED
+        
         self.task_swap(process, task, mutex)
+        self.remaining_quantum_time = 1
 
         return False
     
 
     def __execute_priop(self, process: Process, tasks: list[TCB], mutex:Mutex):
 
+        task_running: TCB = process.task_current
+
+        if task_running and task_running.finished():
+            task_running.state = State.TERMINATED
+            process.task_current = None
+            task_running = process.task_current
+            self.remaining_quantum_time = 1
+
         tasks = [task for task in tasks if task.state == State.RUNNING or task.state == State.READY]
-        
+
         if not tasks: 
             process.task_current = None
             return False
         
+        task_running: TCB = process.task_current
+
+        # se a tarefa estiver na seção crítica, continua até que ela saia da seção
+        if task_running and mutex.owner and mutex.owner == task_running:
+            if task_running == State.RUNNING:
+                self.remaining_quantum_time += 1
+            return False
+
+        if task_running and self.remaining_quantum_time >= self.quantum:
+
+            # tenta procurar outra tarefa pronta para executar
+            tasks_ready = [task for task in process.tasks if task.state == State.READY and task_running != task]
+            
+            if not tasks_ready:
+                # coloca a última tarefa para executar novamente, pois não encontrou nenhuma tarefa pronta
+                self.remaining_quantum_time += 1
+                return False
+            
+            task_running.state = State.SUSPENDED
+            tasks = tasks_ready
+
+
+        # se existir outra tarefa pronta e com prioridade maior que a tarefa atual, faz a troca
         task = max(tasks, key=lambda task: task.priority_init)
-        self.task_swap(process, task, mutex)
+        if task != task_running:
+            self.remaining_quantum_time = 1
+            self.task_swap(process, task, mutex)
+        else:
+            task_running.state = State.RUNNING
+            self.remaining_quantum_time += 1
 
         return False
 

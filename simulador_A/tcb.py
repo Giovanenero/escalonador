@@ -122,9 +122,14 @@ class TCB:
             self.total_waiting_time += 1
 
         elif self.state == State.SUSPENDED:
-            self.waiting += 1
-            self.total_waiting_time += 1
-            self.update_events(mutex)
+
+            if self.finished():
+                self.state = State.TERMINATED
+                self.stop = time
+            else:
+                self.waiting += 1
+                self.total_waiting_time += 1
+                self.update_events(mutex)
 
         elif self.state == State.RUNNING:
             self.waiting = 0
