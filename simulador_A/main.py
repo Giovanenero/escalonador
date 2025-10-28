@@ -77,6 +77,7 @@ def print_gantt(timeline_dict: dict, time: int):
 
 def initialize() -> tuple[int, int, list[TCB]]:
 
+    # pega apenas o primeiro arquivo .txt do diretório atual
     file = next((file for file in os.listdir('./') if file.endswith('.txt')), None)
 
     with open(file, 'r', encoding="utf-8") as file:
@@ -162,7 +163,6 @@ def run():
     task_scheduler = TaskScheduler(algorithm, quantum)
 
     time = 0
-    terminated = False
     timeline_dict = {task.id: [] for task in tasks}
 
     opcao = input('Execução das tarefas:\n\nA: Passo-a-passo\nB: Completa\n\nResposta: ')
@@ -190,10 +190,10 @@ def run():
         for task in tasks:
             task.update_state(time, MUTEX)
 
-
         #se não tiver tarefa no process, finaliza o processo
         if not process.has_task():
             break
+
 
         # chama o escalonador para decidir qual tarefa deve rodar
         task_scheduler.execute(process, MUTEX)
@@ -208,7 +208,6 @@ def run():
 
             #print(f"ID: {task.id}  ###  Cor: {task.color}  ###  Início: {task.start}  ###  Duration: {task.duration_current}/{task.duration}  ###  Prioridade: {task.priority_init}  ###  State: {task.state}")
 
-
         time += 1
 
 
@@ -219,31 +218,9 @@ def run():
     print(f'Tw = {task_scheduler.waiting_time} s')
 
 
-    if 'b' in opcao:
-        plot_timeline(timeline_dict, tasks, ax_graph, ax_table)
+    plot_timeline(timeline_dict, tasks, ax_graph, ax_table)
 
     input('precione qualquer tecla...')
 
 if __name__ == '__main__':
     run()
-
-
-
-# 2
-# 11 0010 == 50
-
-#50
-
-#40
-
-#01000
-
-
-# 50
-
-# 1_0_0000 = 32
-# 0_1_0000 = 16
-
-# 1_0_0000 se >=
-
-# 0_1_0000 se >= 16

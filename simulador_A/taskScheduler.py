@@ -16,7 +16,7 @@ class SchedulerSystemType(Enum):
         if self is SchedulerSystemType.FCFS:
             return scheduler._TaskScheduler__execute_fcfs
         elif self is SchedulerSystemType.SRTF:
-            return scheduler._TaskScheduler__execute_strf
+            return scheduler._TaskScheduler__execute_srtf
         elif self is SchedulerSystemType.PRIOP:
             return scheduler._TaskScheduler__execute_priop
         else:
@@ -32,27 +32,6 @@ class TaskScheduler:
         self.quantum:int = quantum
         self.remaining_quantum_time: int = 0
         self.type_scheduler = SchedulerSystemType[type_scheduler.upper()]
-
-        #self.__index_cooperative = 0 # se o escalonador for cooperativo, este atributo se faz relevante para o gerenciamento das tarefas
-
-
-    # def task_swap(self, process: Process, task: TCB, mutex:Mutex):
-
-    #     if process.task_current != task:
-
-    #         if process.task_current and \
-    #         process.task_current.state != State.TERMINATED and \
-    #         process.task_current.state != State.SUSPENDED:
-                
-    #             process.task_current.state = State.READY
-
-    #         if process.task_current and mutex.owner == process.task_current.id:
-    #             task.state = State.SUSPENDED
-
-    #         else:
-
-    #             task.state = State.RUNNING
-    #             process.task_current = task
 
     def task_swap(self, process: Process, task: TCB, mutex: Mutex):
         # se já está em execução, nada a fazer
@@ -118,35 +97,7 @@ class TaskScheduler:
         return False
 
 
-        # while self.__index_cooperative < len(tasks):
-        #     task_running, index_running = next(((task, index) for index, task in enumerate(tasks) if task.state == State.RUNNING), (None, -1))
-
-        #     if task_running:
-
-
-        #     if task_running is None:
-        #         task_ready, index_ready = next(((task, index) for index, task in enumerate(tasks) if task.state == State.READY), (None, -1))
-
-
-
-
-        #     task: TCB = next(task for task in tasks if task.state)
-        #     task: TCB = tasks[self.__index_cooperative]
-
-        #     if task.state == State.TERMINATED:
-        #         self.__index_cooperative += 1
-
-        #     elif task.state == State.READY:
-        #         task.state = State.RUNNING
-        #         process.task_current = task
-        #         break
-
-        #     else: break
-        
-        #return self.__index_cooperative >= len(tasks) # siginica que totas as tarefa foram terminadas
-
-
-    def __execute_strf(self, process: Process, tasks: list[TCB], mutex:Mutex) -> bool:
+    def __execute_srtf(self, process: Process, tasks: list[TCB], mutex:Mutex) -> bool:
 
         tasks = [task for task in tasks if task.state == State.RUNNING or task.state == State.READY]
         
