@@ -1,3 +1,5 @@
 simulador_A/__pycache__/
 simulador_B/__pycache__/
+simulador_A/dist/
+simulador_A/build/
 *.png

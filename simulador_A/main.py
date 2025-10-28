@@ -220,7 +220,7 @@ def run():
 
     plot_timeline(timeline_dict, tasks, ax_graph, ax_table)
 
-    input('precione qualquer tecla...')
+    input('pressione qualquer tecla...')
 
 if __name__ == '__main__':
     run()
