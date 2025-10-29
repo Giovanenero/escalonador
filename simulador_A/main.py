@@ -4,8 +4,24 @@ from taskScheduler import TaskScheduler
 import os, matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from mutex import Mutex
+import random
+
+DEFAULT_ALGORITHM = "FCFS"
+DEFAULT_QUANTUM = 2
+
+DEFAULT_TASKS = """
+t01;#1f77b4;0;5;2;IO:2-1;IO:3-2\n
+t02;#ff7f0e;0;4;3;IO:3-1\n
+t03;#2ca02c;3;5;5;ML:1;MU:3\n
+t04;#d62728;5;6;9;ML:1;IO:2-1;MU:3\n
+t05;#9467bd;7;4;6;ML:1;IO:2-1;MU:3
+"""
+
+RANDOM_INIT = 0
+RANDOM_END = 10
 
 def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, algoritmo: str, quantum: int, save=True):
+    """Atualiza a interface gráfica do usuário"""
     ax_graph.clear()
     ax_table.clear()
 
@@ -74,79 +90,163 @@ def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, alg
         plt.savefig('./plt.png', dpi=300, bbox_inches="tight")
 
 
-def print_gantt(timeline_dict: dict, time: int):
+# def print_gantt(timeline_dict: dict, time: int):
 
-    print("\nTempo:  " + "  ".join(f'{index:02}' for index in range(time)))
+#     print("\nTempo:  " + "  ".join(f'{index:02}' for index in range(time)))
 
-    keys: int = sorted(list(timeline_dict.keys()))
+#     keys: int = sorted(list(timeline_dict.keys()))
 
-    for key in keys:
-        print(f"{key}      " + "   ".join(status for status in timeline_dict[key][:-1]))
+#     for key in keys:
+#         print(f"{key}      " + "   ".join(status for status in timeline_dict[key][:-1]))
 
 
 def initialize() -> tuple[int, int, list[TCB]]:
+    """Obtém o algoritmo, o valor do quantum e inicializa a lista de tarefas definida no arquivo .txt"""
 
     # pega apenas o primeiro arquivo .txt do diretório atual
-    file = next((file for file in os.listdir('./') if file.endswith('.txt')), None)
+    file = next((file for file in os.listdir('./') if file.endswith('.txt') and file not in ['default_file.txt', 'requirements.txt']), None)
+   
+    # se não existir o arquivo, o sistema escolhe o tipo de algoritmo, quantum 
+    # e as tarefas
+    if not file:
 
-    with open(file, 'r', encoding="utf-8") as file:
-        lines = file.readlines()
+        opcao = input('Arquivo do .txt do usuário não encontrado. Utilizar o arquivo padrão para popular a lista de tarefas(s/n):\n\nResposta: ')
+        opcao = opcao.lower()
 
+        if opcao in ['s', 'sim', 'yes', 'y']:
+            file = os.path.join(os.getcwd(), 'default_file.txt')
+            # faz a leitura do arquivo
+            with open(file, 'r', encoding="utf-8") as file:
+                lines = file.readlines()
+
+        else:
+            algorithm = input('Deseja escolher qual algoritmo?\n\n1 - FCFS\n2 - SRTF\n3 - PRIOP\n\nResposta: ')
+            if '1' in algorithm:
+                algorithm = 'FCFS'
+            elif '2' in algorithm:
+                algorithm = 'SRTF'
+            elif '3' in algorithm:
+                algorithm = 'PRIOP'
+            else:
+                print('Não existe este algoritmo')
+                exit(1)
+            
+            quantum = input('Defina um valor de quantum: ')
+
+            try:
+                quantum = int(quantum)
+            except:
+                print('Erro ao tentar definir o valor de quantum')
+                exit(1)
+
+            tasks_count = input('Defina a quantidade de tarefas: ')
+            try:
+                tasks_count = int(tasks_count)
+            except:
+                print('Erro ao tentar definir a quantidade de tarefas')
+                exit(1)
+
+            lines = [f"{algorithm};{quantum}"]
+            lines += [
+                f"t{index + 1:02d};" +                # ID com 2 dígitos
+                f"#{random.randint(0, 0xFFFFFF):06x};" +  # Cor aleatória
+                f"{random.randint(RANDOM_INIT, RANDOM_END)};" +  # Ingresso
+                f"{random.randint(RANDOM_INIT, RANDOM_END)};" +  # Duração
+                f"{random.randint(RANDOM_INIT, RANDOM_END)}"     # Prioridade
+                for index in range(0, tasks_count)
+            ]
+    else:
+
+        # faz a leitura do arquivo
+        with open(file, 'r', encoding="utf-8") as file:
+            lines = file.readlines()
+    
+    # lê a primeira linha com o tipo do algoritmo e o valor do quantum
     items = lines[0].strip().split(';')
-    algorithm: str = items[0]
-    quantum: int = int(items[1])
+    algorithm = items[0] if items[0] else DEFAULT_ALGORITHM
+    quantum = int(items[1]) if items[1] else DEFAULT_QUANTUM
 
     tasks: list[TCB] = []
 
-    for task in lines[1:]:
+    # inicializa as tarefas e adiciona dentro do processo
+    try:
 
-        items: list[str] = [item for item in task.strip().split(';')]
+        for task in lines[1:]:
 
-        # events: list[dict] = [ 
-        #     {
-        #         'type': event_type, 
-        #         'start': int(time_event.split('-')[0]) if 'IO' in event_type else int(time_event[0]), 
-        #         'duration': int(time_event.split('-')[1]) if 'IO' in event_type else 1,
-        #         'duration_current': 0 if event_type in ['ML', 'MU'] else 0
-        #     }
-        #     for item in items[5:] if item != ''
-        #     for event_type, time_event in [item.split(':')]
-        # ]
-        events: list[dict] = []
-        for item in items[5:]:
-            if not item:
+            if not task and not task.strip():
                 continue
-            event_type, time_event = item.split(':')
-            if 'IO' in event_type:
-                start_s, dur_s = time_event.split('-')
-                events.append({
-                    'type': event_type,
-                    'start': int(start_s),
-                    'duration': int(dur_s),
-                    'duration_current': 0
-                })
-            else:  # ML ou MU
-                events.append({
-                    'type': event_type,
-                    'start': int(time_event),
-                    'duration': 1,               # opcional — para marcar ocorrência
-                    'duration_current': 0
-                })
-        
-        tcb: TCB = TCB(
-            items[0],       # pid
-            items[1],       # color
-            int(items[2]),  # ingresso
-            int(items[3]),  # duração
-            int(items[4]),  # prioridade
-            events
-        )
-        tasks.append(tcb)
+
+            items: list[str] = [item.strip() for item in task.strip().split(';')]
+
+            events: list[dict] = []
+            # =====================================================================
+            # A lista de eventos faz parte do simulador B
+            # =====================================================================
+            # for item in items[5:]:
+            #     if not item:
+            #         continue
+            #     event_type, time_event = item.split(':')
+            #     if 'IO' in event_type:
+            #         start_s, dur_s = time_event.split('-')
+            #         events.append({
+            #             'type': event_type,
+            #             'start': int(start_s),
+            #             'duration': int(dur_s),
+            #             'duration_current': 0
+            #         })
+            #     else:  # ML ou MU
+            #         events.append({
+            #             'type': event_type,
+            #             'start': int(time_event),
+            #             'duration': 1,               # opcional — para marcar ocorrência
+            #             'duration_current': 0
+            #         })
+
+            try:
+                if len(items) == 3:
+                    # significa que o usuári onão adicionou uma cor
+                    if '#' not in items[1]:
+                        tcb: TCB = TCB(
+                            items[0],       # pid
+                            "#{:06x}".format(random.randint(0, 0xFFFFFF)),       # color
+                            int(items[1]),  # ingresso
+                            int(items[2]),  # duração
+                            int(items[3]),  # prioridade
+                            events
+                        )
+                else:            
+                    tcb: TCB = TCB(
+                        items[0],       # pid
+                        items[1],       # color
+                        int(items[2]),  # ingresso
+                        int(items[3]),  # duração
+                        int(items[4]),  # prioridade
+                        events
+                    )
+
+            except Exception as e:
+                print(f'ERRO | def initialize | {e}')
+                tcb: TCB = TCB(
+                    f"t{len(tasks) + 1:02d}",                       # pid
+                    "#{:06x}".format(random.randint(0, 0xFFFFFF)),  # color
+                    random.randint(RANDOM_INIT, RANDOM_END),        # ingresso
+                    random.randint(RANDOM_INIT, RANDOM_END),        # duração
+                    random.randint(RANDOM_INIT, RANDOM_END),        # prioridade
+                    events
+                )
+
+
+            tasks.append(tcb)
+
+    except Exception as e:
+        print(f'ERRO | def initialize | {e}')
+        return
 
     return algorithm, quantum, tasks
     
 
 def save_timeline(timeline_dict: dict, tasks: list[TCB]) -> dict:
+    """Salva os estados das tarefas"""
     for task in tasks:
         timeline_dict[task.id].append(
             ' ' if task.state == State.READY else 
@@ -211,7 +311,7 @@ def run():
         if 'a' in opcao:
             plot_timeline(timeline_dict, tasks, ax_graph, ax_table, algoritmo=algorithm, quantum=task_scheduler.remaining_quantum_time)
             #sleep(0.5)
-            input('pressione qualquer tecla')
+            input('pressione ENTER para continuar')
 
 
             #print(f"ID: {task.id}  ###  Cor: {task.color}  ###  Início: {task.start}  ###  Duration: {task.duration_current}/{task.duration}  ###  Prioridade: {task.priority_init}  ###  State: {task.state}")
@@ -228,7 +328,7 @@ def run():
 
     plot_timeline(timeline_dict, tasks, ax_graph, ax_table, algoritmo=algorithm, quantum=task_scheduler.remaining_quantum_time)
 
-    input('pressione qualquer tecla...')
+    input('pressione ENTER para continuar')
 
 if __name__ == '__main__':
     run()

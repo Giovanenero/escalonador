@@ -34,6 +34,7 @@ class TaskScheduler:
         self.type_scheduler = SchedulerSystemType[type_scheduler.upper()]
 
     def task_swap(self, process: Process, task: TCB, mutex: Mutex):
+        """Faz a troca de contexto"""
         # se já está em execução, nada a fazer
         if process.task_current == task:
             return
@@ -53,7 +54,7 @@ class TaskScheduler:
 
 
     def __execute_fcfs(self, process: Process, tasks: list[TCB], mutex:Mutex) -> bool:
-        
+        """Execução do algoritmo FCFS"""
         task_running: TCB = process.task_current
 
         # continua até a que a tarefa saia da seção crítica
@@ -106,7 +107,7 @@ class TaskScheduler:
 
 
     def __execute_srtf(self, process: Process, tasks: list[TCB], mutex:Mutex) -> bool:
-
+        """Execução do algoritmo SRTF"""
         task_running: TCB = process.task_current
 
         if task_running and task_running.finished():
@@ -163,9 +164,10 @@ class TaskScheduler:
     
 
     def __execute_priop(self, process: Process, tasks: list[TCB], mutex:Mutex):
-
+        """Execução do algoritmo PRIOP"""
         task_running: TCB = process.task_current
 
+        # Faz a verificação se a tarefa que está rodando ainda não terminou
         if task_running and task_running.finished():
             task_running.state = State.TERMINATED
             process.task_current = None
@@ -213,12 +215,14 @@ class TaskScheduler:
 
         
     def execute(self, process: Process, mutex:Mutex) -> bool:
+        """Executa o escalonador com o algoritmo definido na construtora"""
         tasks: list[TCB] = process.tasks
         executor = self.type_scheduler.get_executor(self)
         return executor(process, tasks, mutex)
 
 
     def update_metrics(self, process: Process):
+        """Atualiza métricas do escalonador"""
         tasks: list[TCB] = process.tasks
 
         lifetime_sum = 0
