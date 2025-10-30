@@ -106,8 +106,7 @@ def initialize() -> tuple[int, int, list[TCB]]:
     # pega apenas o primeiro arquivo .txt do diretório atual
     file = next((file for file in os.listdir('./') if file.endswith('.txt') and file not in ['default_file.txt', 'requirements.txt']), None)
    
-    # se não existir o arquivo, o sistema escolhe o tipo de algoritmo, quantum 
-    # e as tarefas
+    # se não existir o arquivo, o sistema escolhe o tipo de algoritmo, quantum e as tarefas
     if not file:
 
         opcao = input('Arquivo do .txt do usuário não encontrado. Utilizar o arquivo padrão para popular a lista de tarefas(s/n):\n\nResposta: ')
@@ -204,7 +203,7 @@ def initialize() -> tuple[int, int, list[TCB]]:
 
             try:
                 if len(items) == 3:
-                    # significa que o usuári onão adicionou uma cor
+                    # significa que o usuário não adicionou uma cor
                     if '#' not in items[1]:
                         tcb: TCB = TCB(
                             items[0],       # pid
@@ -296,10 +295,11 @@ def run():
 
         tasks: list[TCB] = process.tasks
 
+        # inicializa o estado das tarefas
         for task in tasks:
             task.update_state(time, MUTEX)
 
-        #se não tiver tarefa no process, finaliza o processo
+        # se não tiver tarefa no process, finaliza o processo
         if not process.has_task():
             break
 
