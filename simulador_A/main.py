@@ -4,10 +4,14 @@ from taskScheduler import TaskScheduler
 import os, matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from mutex import Mutex
-import random
+import random, copy
 
 DEFAULT_ALGORITHM = "FCFS"
 DEFAULT_QUANTUM = 2
+DEFAULT_ALPHA = 1
+
+ALGORITHMS = ['FCFS', 'SRTF', 'PRIOP', 'PRIOPEnv']
+ALGORITHMS_ENV = ['PRIOPEnv']
 
 DEFAULT_TASKS = """
 t01;#1f77b4;0;5;2;IO:2-1;IO:3-2\n
@@ -19,6 +23,8 @@ t05;#9467bd;7;4;6;ML:1;IO:2-1;MU:3
 
 RANDOM_INIT = 0
 RANDOM_END = 10
+
+TASKS_CONTEXT = []
 
 def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, algoritmo: str, quantum: int, save=True):
     """Atualiza a interface gráfica do usuário"""
@@ -46,7 +52,7 @@ def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, alg
     # --- Legenda com o algoritmo e quantum ---
     ax_graph.text(
         0.5, 1.05, 
-        f"Algoritmo: {algoritmo} | Quantum: {QUANTUM} | Running: {quantum}", 
+        f"Algoritmo: {algoritmo} | Quantum: {QUANTUM} | ALPHA : {ALPHA} | Running: {quantum}", 
         ha='center', va='bottom', transform=ax_graph.transAxes,
         fontsize=10, fontweight='bold'
     )
@@ -59,10 +65,10 @@ def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, alg
             task.color, 
             task.start, 
             f"{task.duration_current}/{task.duration}", 
-            task.priority_init,
+            task.priority_current,
             ", ".join([f'{event["start"]}/{event["duration"]}/{event["duration_current"]}' for event in task.events if 'IO' in event['type']]), 
             ", ".join([f'{event["type"]}:{event["start"]}' for event in task.events if event['type'] in ['ML', 'MU']]),
-            "1" if task == MUTEX.owner else "0",
+            "1" if MUTEX.owner and task.id == MUTEX.owner.id else "0",
             task.state.name
         ] 
         for task in tasks
@@ -100,7 +106,7 @@ def plot_timeline(timeline_dict: dict, tasks: list[TCB], ax_graph, ax_table, alg
 #         print(f"{key}      " + "   ".join(status for status in timeline_dict[key][:-1]))
 
 
-def initialize() -> tuple[int, int, list[TCB]]:
+def initialize() -> tuple[int, int, int, list[TCB]]:
     """Obtém o algoritmo, o valor do quantum e inicializa a lista de tarefas definida no arquivo .txt"""
 
     # pega apenas o primeiro arquivo .txt do diretório atual
@@ -119,13 +125,15 @@ def initialize() -> tuple[int, int, list[TCB]]:
                 lines = file.readlines()
 
         else:
-            algorithm = input('Deseja escolher qual algoritmo?\n\n1 - FCFS\n2 - SRTF\n3 - PRIOP\n\nResposta: ')
+            algorithm = input('Deseja escolher qual algoritmo?\n\n1 - FCFS\n2 - SRTF\n3 - PRIOP\n4 - PRIOPEnv\n\nResposta: ')
             if '1' in algorithm:
                 algorithm = 'FCFS'
             elif '2' in algorithm:
                 algorithm = 'SRTF'
             elif '3' in algorithm:
                 algorithm = 'PRIOP'
+            elif '4' in algorithm:
+                algorithm = 'PRIOPEnv'
             else:
                 print('Não existe este algoritmo')
                 exit(1)
@@ -164,6 +172,7 @@ def initialize() -> tuple[int, int, list[TCB]]:
     items = lines[0].strip().split(';')
     algorithm = items[0] if items[0] else DEFAULT_ALGORITHM
     quantum = int(items[1]) if items[1] else DEFAULT_QUANTUM
+    alpha = int(items[2]) if len(items) >= 2 else DEFAULT_ALPHA
 
     tasks: list[TCB] = []
 
@@ -178,28 +187,26 @@ def initialize() -> tuple[int, int, list[TCB]]:
             items: list[str] = [item.strip() for item in task.strip().split(';')]
 
             events: list[dict] = []
-            # =====================================================================
-            # A lista de eventos faz parte do simulador B
-            # =====================================================================
-            # for item in items[5:]:
-            #     if not item:
-            #         continue
-            #     event_type, time_event = item.split(':')
-            #     if 'IO' in event_type:
-            #         start_s, dur_s = time_event.split('-')
-            #         events.append({
-            #             'type': event_type,
-            #             'start': int(start_s),
-            #             'duration': int(dur_s),
-            #             'duration_current': 0
-            #         })
-            #     else:  # ML ou MU
-            #         events.append({
-            #             'type': event_type,
-            #             'start': int(time_event),
-            #             'duration': 1,               # opcional — para marcar ocorrência
-            #             'duration_current': 0
-            #         })
+            
+            for item in items[5:]:
+                if not item:
+                    continue
+                event_type, time_event = item.split(':')
+                if 'IO' in event_type:
+                    start_s, dur_s = time_event.split('-')
+                    events.append({
+                        'type': event_type,
+                        'start': int(start_s),
+                        'duration': int(dur_s),
+                        'duration_current': 0
+                    })
+                else:  # ML ou MU
+                    events.append({
+                        'type': event_type,
+                        'start': int(time_event),
+                        'duration': 1,               # opcional — para marcar ocorrência
+                        'duration_current': 0
+                    })
 
             try:
                 if len(items) == 3:
@@ -216,7 +223,7 @@ def initialize() -> tuple[int, int, list[TCB]]:
                 else:            
                     tcb: TCB = TCB(
                         items[0],       # pid
-                        items[1],       # color
+                        "#" + items[1],       # color
                         int(items[2]),  # ingresso
                         int(items[3]),  # duração
                         int(items[4]),  # prioridade
@@ -241,8 +248,8 @@ def initialize() -> tuple[int, int, list[TCB]]:
         print(f'ERRO | def initialize | {e}')
         return
 
-    return algorithm, quantum, tasks
-    
+    return algorithm, quantum, alpha, tasks
+
 
 def save_timeline(timeline_dict: dict, tasks: list[TCB]) -> dict:
     """Salva os estados das tarefas"""
@@ -256,11 +263,10 @@ def save_timeline(timeline_dict: dict, tasks: list[TCB]) -> dict:
 
     return timeline_dict
 
-
 def run():
-    global MUTEX, QUANTUM
+    global MUTEX, QUANTUM, ALPHA
 
-    algorithm, QUANTUM, tasks = initialize()
+    algorithm, QUANTUM, ALPHA, tasks = initialize()
 
     process = Process() # cria o process
     for task in tasks:
@@ -268,7 +274,7 @@ def run():
 
     process.sort_ready() # ordena as tarefas por ordem de ingresso
 
-    task_scheduler = TaskScheduler(algorithm, QUANTUM)
+    task_scheduler = TaskScheduler(algorithm, QUANTUM, ALPHA)
 
     time = 0
     timeline_dict = {task.id: [] for task in tasks}
@@ -289,34 +295,68 @@ def run():
 
     MUTEX = Mutex()
 
+    ap_env = ALPHA if any(alg for alg in ALGORITHMS if alg in ALGORITHMS_ENV) else 0
+
+    update = True
+    TASKS_CONTEXT.append({'process': copy.deepcopy(process), 'mutex': copy.deepcopy(MUTEX), 'timeline_dict': timeline_dict})
+
     while True: 
 
         #print(f'================================================= TIME: {time} =================================================\n')
 
         tasks: list[TCB] = process.tasks
 
-        # inicializa o estado das tarefas
-        for task in tasks:
-            task.update_state(time, MUTEX)
 
-        # se não tiver tarefa no process, finaliza o processo
-        if not process.has_task():
-            break
+        if update:
 
-        # chama o escalonador para decidir qual tarefa deve rodar
-        task_scheduler.execute(process, MUTEX)
 
-        timeline_dict = save_timeline(timeline_dict, tasks)
+            # inicializa o estado das tarefas
+            for task in tasks:
+                task.update_state(time, MUTEX)
+
+            # se não tiver tarefa no process, finaliza o processo
+            if not process.has_task():
+                break
+
+            # chama o escalonador para decidir qual tarefa deve rodar
+            task_scheduler.execute(process, MUTEX)
+
+            timeline_dict = save_timeline(timeline_dict, tasks)
+
+            TASKS_CONTEXT.append({
+                    'process': copy.deepcopy(process),
+                    'mutex': copy.deepcopy(MUTEX),
+                    'timeline_dict': copy.deepcopy(timeline_dict)
+                })
+
 
         if 'a' in opcao:
             plot_timeline(timeline_dict, tasks, ax_graph, ax_table, algoritmo=algorithm, quantum=task_scheduler.remaining_quantum_time)
-            #sleep(0.5)
-            input('pressione ENTER para continuar')
 
+            option = input('Pressione "0" para VOLTAR ou "1" para AVANÇAR\n\nResposta: ')
+            while option not in ['0', '1']:
+                option = input('Pressione "0" para VOLTAR ou "1" para AVANÇAR\n\nResposta: ')
 
-            #print(f"ID: {task.id}  ###  Cor: {task.color}  ###  Início: {task.start}  ###  Duration: {task.duration_current}/{task.duration}  ###  Prioridade: {task.priority_init}  ###  State: {task.state}")
+            if '1' in option:
+                time += 1
+                update = True
 
-        time += 1
+            else: 
+                # retrocede
+                update = False
+                if len(TASKS_CONTEXT) > 1:
+                    TASKS_CONTEXT.pop()
+                    context = TASKS_CONTEXT[-1]
+                    process = context['process']
+                    MUTEX = context['mutex']
+                    timeline_dict = context['timeline_dict']
+                    time -= 1
+        else:
+
+            time += 1
+
+        #print(f"ID: {task.id}  ###  Cor: {task.color}  ###  Início: {task.start}  ###  Duration: {task.duration_current}/{task.duration}  ###  Prioridade: {task.priority_init}  ###  State: {task.state}")
+
 
 
     process.task_current.stop = time

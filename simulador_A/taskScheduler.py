@@ -11,6 +11,7 @@ class SchedulerSystemType(Enum):
     FCFS = "FCFS"   # cooperativo
     SRTF = "SRTF"   # preemptivo
     PRIOP = "PRIOP" # preemptivo por prioridade
+    PRIOPEnv = "PRIOPEnv" # preemptivo por prioridade com envelhecimento
 
     def get_executor(self, scheduler: "TaskScheduler"):
         if self is SchedulerSystemType.FCFS:
@@ -19,19 +20,23 @@ class SchedulerSystemType(Enum):
             return scheduler._TaskScheduler__execute_srtf
         elif self is SchedulerSystemType.PRIOP:
             return scheduler._TaskScheduler__execute_priop
+        elif self is SchedulerSystemType.PRIOPEnv:
+            return scheduler._TaskScheduler__execute_prioenv
         else:
             raise ValueError(f"Scheduler não suportado: {self}")
 
 
 class TaskScheduler:
-    def __init__(self, type_scheduler: str, quantum: int = None):
+    def __init__(self, type_scheduler: str, quantum: int = None, alpha: int = None):
         self.turnaround_time:float = None
         self.waiting_time:float = None
         self.response_time: float = None
         self.efficiency: float = None
         self.quantum:int = quantum
+        self.alpha:int = alpha
         self.remaining_quantum_time: int = 0
-        self.type_scheduler = SchedulerSystemType[type_scheduler.upper()]
+        self.type_scheduler = SchedulerSystemType[type_scheduler]
+
 
     def task_swap(self, process: Process, task: TCB, mutex: Mutex):
         """Faz a troca de contexto"""
@@ -214,6 +219,71 @@ class TaskScheduler:
         return False
 
         
+    def __execute_prioenv(self, process: Process, tasks: list[TCB], mutex: Mutex):
+        """Executa o algoritmo PRIOEnv"""
+
+        task_running: TCB = process.task_current
+
+        # Faz a verificação se a tarefa que está rodando ainda não terminou
+        if task_running and task_running.finished():
+            task_running.state = State.TERMINATED
+            process.task_current = None
+            task_running = process.task_current
+            self.remaining_quantum_time = 1
+
+        tasks = [task for task in tasks if task.state == State.RUNNING or task.state == State.READY]
+
+        if not tasks: 
+            process.task_current = None
+            return False
+        
+        task_running: TCB = process.task_current
+
+        tasks_ready = []
+
+        # se a tarefa estiver na seção crítica, continua até que ela saia da seção
+        if task_running and mutex.owner and mutex.owner == task_running:
+            #if task_running == State.RUNNING:
+            self.remaining_quantum_time += 1
+            return False
+
+        if task_running and self.remaining_quantum_time >= self.quantum:
+
+            # tenta procurar outra tarefa pronta para executar
+            tasks_ready = [task for task in process.tasks if task.state == State.READY and task_running != task]
+            
+            if not tasks_ready:
+                # coloca a última tarefa para executar novamente, pois não encontrou nenhuma tarefa pronta
+                self.remaining_quantum_time += 1
+                return False
+            
+            task_running.state = State.SUSPENDED
+            tasks = tasks_ready
+
+
+        # se existir outra tarefa pronta e com prioridade maior que a tarefa atual, faz a troca
+        task = max(tasks, key=lambda task: task.priority_init)
+        if task != task_running:
+            self.remaining_quantum_time = 1
+
+            # incrementa a prioridade, pois o escalonador escolheu outra tarefa
+        
+            tasks_ready = [t for t in process.tasks if t.state == State.READY and task_running != t and t != task]
+            for t in tasks_ready:
+                    t.priority_current += self.alpha
+
+
+            self.task_swap(process, task, mutex)
+
+        else:
+            task_running.state = State.RUNNING
+            self.remaining_quantum_time += 1
+
+
+        return False
+
+
+
     def execute(self, process: Process, mutex:Mutex) -> bool:
         """Executa o escalonador com o algoritmo definido na construtora"""
         tasks: list[TCB] = process.tasks

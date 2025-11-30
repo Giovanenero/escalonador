@@ -41,6 +41,7 @@ class TCB:
     def print_info(self):
         print(f"ID: {self.id}  ###  Cor: {self.color}  ###  Início: {self.start}  ###  Duration: {self.duration_current}/{self.duration}  ###  Prioridade: {self.priority_init}  ###  State: {self.state}")
 
+
     def update_events(self, mutex: Mutex):
         # não processa se a tarefa não estiver ativa para processar eventos
         # (chame update_events apenas quando estiver RUNNING ou SUSPENDED conforme seu fluxo)
@@ -57,7 +58,7 @@ class TCB:
                 active_events.append(event)
 
         if not active_events and self.state == State.SUSPENDED:
-            if mutex.owner == self:
+            if mutex.owner and mutex.owner.id == self.id:
                 self.state = State.RUNNING
             else:
                 self.state = State.READY
@@ -94,7 +95,7 @@ class TCB:
             # Mutex Unlock
             elif 'MU' in event_type:
                 # só o dono pode liberar
-                if mutex.owner == self:
+                if mutex.owner.id == self.id:
                     mutex.locked = False
                     mutex.owner = None
                     print(f"[t] {self.id} liberou o mutex")
