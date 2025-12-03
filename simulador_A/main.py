@@ -202,7 +202,7 @@ def initialize() -> tuple[int, int, int, list[TCB]]:
                     })
                 else:  # ML ou MU
                     events.append({
-                        'type': event_type,
+                        'type': 'ML' if 'ML' in event_type else 'MU',
                         'start': int(time_event),
                         'duration': 1,               # opcional — para marcar ocorrência
                         'duration_current': 0

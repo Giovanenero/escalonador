@@ -188,7 +188,7 @@ class TaskScheduler:
         task_running: TCB = process.task_current
 
         # se a tarefa estiver na seção crítica, continua até que ela saia da seção
-        if task_running and mutex.owner and mutex.owner == task_running:
+        if task_running and mutex.owner and mutex.owner.id == task_running.id:
             #if task_running == State.RUNNING:
             self.remaining_quantum_time += 1
             return False
@@ -237,12 +237,11 @@ class TaskScheduler:
             process.task_current = None
             return False
         
-        task_running: TCB = process.task_current
 
         tasks_ready = []
 
         # se a tarefa estiver na seção crítica, continua até que ela saia da seção
-        if task_running and mutex.owner and mutex.owner == task_running:
+        if task_running and mutex.owner and mutex.owner.id == task_running.id:
             #if task_running == State.RUNNING:
             self.remaining_quantum_time += 1
             return False
@@ -250,7 +249,7 @@ class TaskScheduler:
         if task_running and self.remaining_quantum_time >= self.quantum:
 
             # tenta procurar outra tarefa pronta para executar
-            tasks_ready = [task for task in process.tasks if task.state == State.READY and task_running != task]
+            tasks_ready = [task for task in process.tasks if task.state == State.READY and task_running.id != task.id]
             
             if not tasks_ready:
                 # coloca a última tarefa para executar novamente, pois não encontrou nenhuma tarefa pronta
@@ -262,15 +261,16 @@ class TaskScheduler:
 
 
         # se existir outra tarefa pronta e com prioridade maior que a tarefa atual, faz a troca
-        task = max(tasks, key=lambda task: task.priority_init)
-        if task != task_running:
+        task = max(tasks, key=lambda task: task.priority_current)
+
+        if task and task != task_running:
             self.remaining_quantum_time = 1
 
             # incrementa a prioridade, pois o escalonador escolheu outra tarefa
         
-            tasks_ready = [t for t in process.tasks if t.state == State.READY and task_running != t and t != task]
+            tasks_ready = [t for t in process.tasks if t.state == State.READY and task_running and task_running.id != t.id and t.id != task.id]
             for t in tasks_ready:
-                    t.priority_current += self.alpha
+                t.priority_current += self.alpha
 
 
             self.task_swap(process, task, mutex)
