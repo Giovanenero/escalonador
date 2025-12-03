@@ -11,7 +11,7 @@ class SchedulerSystemType(Enum):
     FCFS = "FCFS"   # cooperativo
     SRTF = "SRTF"   # preemptivo
     PRIOP = "PRIOP" # preemptivo por prioridade
-    PRIOPEnv = "PRIOPEnv" # preemptivo por prioridade com envelhecimento
+    PRIOPENV = "PRIOPENV" # preemptivo por prioridade com envelhecimento
 
     def get_executor(self, scheduler: "TaskScheduler"):
         if self is SchedulerSystemType.FCFS:
@@ -20,7 +20,7 @@ class SchedulerSystemType(Enum):
             return scheduler._TaskScheduler__execute_srtf
         elif self is SchedulerSystemType.PRIOP:
             return scheduler._TaskScheduler__execute_priop
-        elif self is SchedulerSystemType.PRIOPEnv:
+        elif self is SchedulerSystemType.PRIOPENV:
             return scheduler._TaskScheduler__execute_prioenv
         else:
             raise ValueError(f"Scheduler não suportado: {self}")

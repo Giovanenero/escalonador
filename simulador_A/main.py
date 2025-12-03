@@ -170,7 +170,7 @@ def initialize() -> tuple[int, int, int, list[TCB]]:
     
     # lê a primeira linha com o tipo do algoritmo e o valor do quantum
     items = lines[0].strip().split(';')
-    algorithm = items[0] if items[0] else DEFAULT_ALGORITHM
+    algorithm = items[0].upper() if items[0] else DEFAULT_ALGORITHM
     quantum = int(items[1]) if items[1] else DEFAULT_QUANTUM
     alpha = int(items[2]) if len(items) >= 2 else DEFAULT_ALPHA
 
