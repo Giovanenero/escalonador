@@ -57,7 +57,9 @@ class TCB:
             if self.duration_current >= event['start']:
                 active_events.append(event)
 
-        if not active_events and self.state == State.SUSPENDED:
+        has_interrupt = next((True for event in active_events if 'IO' in event['type']), False)
+
+        if (not active_events or not has_interrupt) and self.state == State.SUSPENDED:
             if mutex.owner and mutex.owner.id == self.id:
                 self.state = State.RUNNING
             else:
@@ -77,11 +79,12 @@ class TCB:
             # Mutex Lock
             elif 'ML' in event_type:
                 # se livre, adquiri
-                if not mutex.locked:
+                if not mutex.locked or (mutex.owner and mutex.owner.id == self.id):
                     mutex.locked = True
                     mutex.owner = self   # salva o TCB
                     print(f"[t] {self.id} adquiriu o mutex")
                     # remover o evento ML (já consumido)
+
                     if event in self.events:
                         self.events.remove(event)
                 else:
@@ -96,17 +99,29 @@ class TCB:
             elif 'MU' in event_type:
                 # só o dono pode liberar
                 if mutex.owner.id == self.id:
+
                     mutex.locked = False
                     mutex.owner = None
                     print(f"[t] {self.id} liberou o mutex")
                     # acorda o próximo (se houver)
+
+                    print(len(mutex.waiting_queue))
                     if mutex.waiting_queue:
                         next_tcb = mutex.waiting_queue.pop(0)
                         next_tcb.state = State.READY
+
                         print(f"[t] {next_tcb.id} acordou (mutex disponível)")
                     # remove o evento MU
                     if event in self.events:
                         self.events.remove(event)
+
+                    ml_mu = [event for event in self.events if 'ML' in event['type'] or 'MU' in event['type']]
+                    if next((True for event in ml_mu if 'MU' in event['type']), False):
+                        mutex.owner = self
+                        mutex.locked = True
+                        print(f"[t] {self.id} readquiriu o mutex automaticamente")
+                        return
+
                 else:
                     # se não for dono, ignorar MU (ou logar erro)
                     if event in self.events:

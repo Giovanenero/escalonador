@@ -268,12 +268,15 @@ class TaskScheduler:
 
             # incrementa a prioridade, pois o escalonador escolheu outra tarefa
         
-            tasks_ready = [t for t in process.tasks if t.state == State.READY and task_running and task_running.id != t.id and t.id != task.id]
+            #tasks_ready = [t for t in process.tasks if t.state == State.READY and (task_running and task_running.id != t.id and t.id != task.id)]
+            tasks_ready = [t for t in process.tasks if t.state == State.READY]
             for t in tasks_ready:
                 t.priority_current += self.alpha
 
 
             self.task_swap(process, task, mutex)
+            if process.task_current.id == task.id:
+                task.priority_current -= self.alpha
 
         else:
             task_running.state = State.RUNNING
